@@ -154,6 +154,8 @@ def relink(patha, pathb, hash):
     # because link() would fail with an EEXIST,
     # we need to create a temp-name'd link file
     # and then do an atomic rename() atop the original
+    # This could use tempfile.mktemp() but it has
+    # been deprecated, so use the hash as a filename instead
     dest_path = os.path.split(pathb)[0]
     temp_name = os.path.join(dest_path, hash)
     os.link(patha, temp_name)
