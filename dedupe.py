@@ -33,6 +33,12 @@ def build_parser():
         dest="dry_run",
         default=False,
         )
+    parser.add_option("-q", "--quiet",
+        help="Don't log which files were re-linked",
+        action="store_true",
+        dest="quiet",
+        default=False,
+        )
     parser.add_option("-r", "--recurse",
         help="Recurse into subdirectories",
         action="store_true",
@@ -94,7 +100,11 @@ def find_dupes(options, *dirs):
                 if isinstance(existing_file_info, dict):
                     # we've already hashed these files
                     if this_hash in existing_file_info:
-                        yield existing_file_info[this_hash], fullpath
+                        yield (
+                            existing_file_info[this_hash],
+                            fullpath,
+                            this_hash,
+                            )
                     else:
                         device_file_info_dict[file_size][this_hash] = fullpath
                 else:
@@ -108,7 +118,11 @@ def find_dupes(options, *dirs):
                         existing_file_hash: existing_file_info,
                         }
                     if existing_file_hash == this_hash:
-                        yield (existing_file_info, fullpath)
+                        yield (
+                            existing_file_info,
+                            fullpath,
+                            this_hash,
+                            )
                     else:
                         device_file_info_dict[file_size][this_hash] = fullpath
             else:
@@ -116,9 +130,34 @@ def find_dupes(options, *dirs):
                 # so just note the full path for later
                 device_file_info_dict[file_size] =  fullpath
 
+def relink(patha, pathb, hash):
+    # because link() would fail with an EEXIST,
+    # we need to create a temp-name'd link file
+    # and then do an atomic rename() atop the original
+    dest_path = os.path.split(pathb)[0]
+    temp_name = os.path.join(dest_path, hash)
+    os.link(patha, temp_name)
+    try:
+        # this is documented as atomic
+        os.rename(temp_name, pathb)
+    except OSError:
+        # if power is lost after the link()
+        # but before the unlink()
+        # we might get a leftover file
+        # but that's better than losing pathb
+        # by doing a delete() then link()
+        os.unlink(temp_name)
+
 def dedupe(options, *dirs):
-    for a, b in find_dupes(options, *dirs):
-        print("%s -> %s" % (a, b))
+    for full_path_a, full_path_b, hash in find_dupes(options, *dirs):
+        if not options.quiet:
+            print("%s -> %s" % (full_path_a, full_path_b))
+        if not options.dry_run:
+            try:
+                relink(full_path_a, full_path_b, hash)
+            except OSError:
+                sys.stderr.write("Could not relink %s to %s\n" % (
+                    full_path_a, full_path_b))
 
 def main():
     parser = build_parser()
