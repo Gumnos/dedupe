@@ -85,10 +85,12 @@ def find_dupes(options, *dirs):
 
     for loc in dirs:
         for fullpath in walker(loc):
-            if not os.path.isfile(fullpath): continue
+            if not os.path.isfile(fullpath):
+                continue
             stat = os.stat(fullpath)
             file_size = stat.st_size
-            if file_size < options.min_size: continue
+            if file_size < options.min_size:
+                continue
             current_file_device = stat.st_dev
             device_file_info_dict = file_info_dict.setdefault(
                 current_file_device,
