@@ -4,11 +4,6 @@ import os
 import sys
 
 try:
-  basestring
-except NameError:
-  basestring = str
-
-try:
     algorithms = hashlib.algorithms_available
 except AttributeError:
     algorithms = [
@@ -60,7 +55,7 @@ def build_parser():
     return parser
 
 def find_dupes(options, *dirs):
-    hashes = {} # {size: {hash: path} or path}
+    file_info_dict = {} # {dev: {size: {hash: path}}}
 
     if options.recurse:
         def walker(loc):
@@ -86,29 +81,40 @@ def find_dupes(options, *dirs):
         for fullpath in walker(loc):
             if not os.path.isfile(fullpath): continue
             stat = os.stat(fullpath)
-            size = stat.st_size
-            if size < options.min_size: continue
-            if size in hashes:
-                info = hashes[size]
+            file_size = stat.st_size
+            if file_size < options.min_size: continue
+            current_file_device = stat.st_dev
+            device_file_info_dict = file_info_dict.setdefault(
+                current_file_device,
+                {},
+                )
+            if file_size in device_file_info_dict:
                 this_hash = get_file_hash(fullpath, options.algorithm)
-                if isinstance(info, basestring):
-                    # so far, we've only seen the one file
-                    # thus we need to hash both
-                    preexisting_hash = get_file_hash(info, options.algorithm)
-                    hashes[size] = {preexisting_hash: info}
-                    if preexisting_hash == this_hash:
-                        yield (info, fullpath)
+                existing_file_info = device_file_info_dict[file_size]
+                if isinstance(existing_file_info, dict):
+                    # we've already hashed these files
+                    if this_hash in existing_file_info:
+                        yield existing_file_info[this_hash], fullpath
                     else:
-                        hashes[size][this_hash] = fullpath
+                        device_file_info_dict[file_size][this_hash] = fullpath
                 else:
-                    if this_hash in info:
-                        yield info[this_hash], fullpath
+                    # so far, we've only seen the one file
+                    # thus we need to hash the original too
+                    existing_file_hash = get_file_hash(
+                        existing_file_info,
+                        options.algorithm,
+                        )
+                    device_file_info_dict[file_size] = {
+                        existing_file_hash: existing_file_info,
+                        }
+                    if existing_file_hash == this_hash:
+                        yield (existing_file_info, fullpath)
                     else:
-                        hashes[size][this_hash] = fullpath
+                        device_file_info_dict[file_size][this_hash] = fullpath
             else:
-                # we haven't seen this size before
+                # we haven't seen this file size before
                 # so just note the full path for later
-                hashes[size] = fullpath
+                device_file_info_dict[file_size] =  fullpath
 
 def dedupe(options, *dirs):
     for a, b in find_dupes(options, *dirs):
