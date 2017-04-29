@@ -26,9 +26,6 @@ algorithms = sorted(algorithms)
 DEFAULT_ALGO = "sha256"
 assert DEFAULT_ALGO in algorithms, "Default algorithm %s not available" % DEFAULT_ALGO
 
-def dedupe(options, *locations):
-    pass
-
 def build_parser():
     parser = op.OptionParser(
         usage="usage: %prog [options] dir1 [dir2...]",
