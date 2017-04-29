@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 from collections import namedtuple
 import hashlib
 import optparse as op
