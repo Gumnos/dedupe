@@ -71,13 +71,13 @@ def find_dupes(options, *dirs):
 
     if options.recurse:
         def walker(loc):
-            for fname in os.listdir(loc):
-                yield os.path.join(loc, fname)
-    else:
-        def walker(loc):
             for root, dirs, files in os.walk(loc):
                 for fname in files:
                     yield os.path.join(root, fname)
+    else:
+        def walker(loc):
+            for fname in os.listdir(loc):
+                yield os.path.join(loc, fname)
 
     def get_file_hash(fname, algorithm, block_size=1024*1024):
         hasher = hashlib.new(options.algorithm)
