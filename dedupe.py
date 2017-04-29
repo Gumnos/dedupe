@@ -1,7 +1,13 @@
+from collections import namedtuple
 import hashlib
 import optparse as op
 import os
 import sys
+
+FileInfo = namedtuple("FileInfo", [
+    "name",
+    "inode",
+    ])
 
 try:
     algorithms = hashlib.algorithms_available
@@ -97,31 +103,42 @@ def find_dupes(options, *dirs):
                 {},
                 )
             if file_size in device_file_info_dict:
-                this_hash = get_file_hash(fullpath, options.algorithm)
-                existing_file_info = device_file_info_dict[file_size]
-                if isinstance(existing_file_info, dict):
+                file_info_for_size = device_file_info_dict[file_size]
+                if isinstance(file_info_for_size, dict):
                     # we've already hashed these files
-                    if this_hash in existing_file_info:
+                    # if we've already seen a file with the same inode,
+                    # no need to deduplicate it again
+                    if any(fileinfo.inode == stat.st_ino
+                            for fileinfo
+                            in file_info_for_size.itervalues()
+                            ):
+                        continue
+                    this_hash = get_file_hash(fullpath, options.algorithm)
+                    if this_hash in file_info_for_size:
                         yield (
-                            existing_file_info[this_hash],
+                            file_info_for_size[this_hash].name,
                             fullpath,
                             this_hash,
                             )
                     else:
                         device_file_info_dict[file_size][this_hash] = fullpath
                 else:
+                    if file_info_for_size.inode == stat.st_ino:
+                        # These are already the same file
+                        continue
+                    this_hash = get_file_hash(fullpath, options.algorithm)
                     # so far, we've only seen the one file
                     # thus we need to hash the original too
                     existing_file_hash = get_file_hash(
-                        existing_file_info,
+                        file_info_for_size.name,
                         options.algorithm,
                         )
                     device_file_info_dict[file_size] = {
-                        existing_file_hash: existing_file_info,
+                        existing_file_hash: file_info_for_size,
                         }
                     if existing_file_hash == this_hash:
                         yield (
-                            existing_file_info,
+                            file_info_for_size.name,
                             fullpath,
                             this_hash,
                             )
@@ -130,7 +147,10 @@ def find_dupes(options, *dirs):
             else:
                 # we haven't seen this file size before
                 # so just note the full path for later
-                device_file_info_dict[file_size] =  fullpath
+                device_file_info_dict[file_size] =  FileInfo(
+                    fullpath,
+                    stat.st_ino,
+                    )
 
 def relink(patha, pathb, hash):
     # because link() would fail with an EEXIST,
@@ -149,6 +169,7 @@ def relink(patha, pathb, hash):
         # but that's better than losing pathb
         # by doing a delete() then link()
         os.unlink(temp_name)
+        raise
 
 def dedupe(options, *dirs):
     for full_path_a, full_path_b, hash in find_dupes(options, *dirs):
