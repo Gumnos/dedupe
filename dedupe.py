@@ -109,6 +109,7 @@ def find_dupes(options, *dirs):
                     if any(fileinfo.inode == stat.st_ino
                             for fileinfo
                             in file_info_for_size.itervalues()
+                            if not isinstance(fileinfo, dict)
                             ):
                         continue
                     this_hash = get_file_hash(fullpath, options.algorithm)
