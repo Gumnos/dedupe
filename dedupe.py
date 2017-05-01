@@ -65,7 +65,9 @@ def build_parser():
     return parser
 
 def find_dupes(options, *dirs):
-    file_info_dict = {} # {dev: {size: {hash: path}}}
+    # {dev: {size: {hash: FileInfo}}}
+    # {dev: {size: FileInfo}}
+    file_info_dict = {}
 
     if options.recurse:
         def walker(loc):
@@ -109,7 +111,6 @@ def find_dupes(options, *dirs):
                     if any(fileinfo.inode == stat.st_ino
                             for fileinfo
                             in file_info_for_size.itervalues()
-                            if not isinstance(fileinfo, dict)
                             ):
                         continue
                     this_hash = get_file_hash(fullpath, options.algorithm)
@@ -120,7 +121,11 @@ def find_dupes(options, *dirs):
                             this_hash,
                             )
                     else:
-                        device_file_info_dict[file_size][this_hash] = fullpath
+                        device_file_info_dict[file_size][this_hash] = FileInfo(
+                            fullpath,
+                            stat.st_ino,
+                            )
+
                 else:
                     if file_info_for_size.inode == stat.st_ino:
                         # These are already the same file
@@ -142,7 +147,10 @@ def find_dupes(options, *dirs):
                             this_hash,
                             )
                     else:
-                        device_file_info_dict[file_size][this_hash] = fullpath
+                        device_file_info_dict[file_size][this_hash] = FileInfo(
+                            fullpath,
+                            stat.st_ino,
+                            )
             else:
                 # we haven't seen this file size before
                 # so just note the full path for later
