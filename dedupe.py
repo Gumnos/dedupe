@@ -7,6 +7,7 @@ import sys
 
 FileInfo = namedtuple("FileInfo", [
     "name",
+    "dev",
     "inode",
     ])
 
@@ -65,9 +66,9 @@ def build_parser():
     return parser
 
 def find_dupes(options, *dirs):
-    # {dev: {size: {hash: FileInfo}}}
-    # {dev: {size: FileInfo}}
-    file_info_dict = {}
+    # {size: {dev: {hash: FileInfo}}}
+    # {size: {dev: FileInfo}}
+    size_device_info_dict = {}
 
     if options.recurse:
         def walker(loc):
@@ -97,67 +98,87 @@ def find_dupes(options, *dirs):
             file_size = stat.st_size
             if file_size < options.min_size:
                 continue
-            current_file_device = stat.st_dev
-            device_file_info_dict = file_info_dict.setdefault(
-                current_file_device,
+            this_device = stat.st_dev
+            this_fileinfo = FileInfo(
+                fullpath,
+                this_device,
+                stat.st_ino,
+                )
+            device_fileinfo_dict = size_device_info_dict.setdefault(
+                file_size,
                 {},
                 )
-            if file_size in device_file_info_dict:
-                file_info_for_size = device_file_info_dict[file_size]
-                if isinstance(file_info_for_size, dict):
-                    # we've already hashed these files
+            if this_device in device_fileinfo_dict:
+                info_or_dict = device_fileinfo_dict[this_device]
+                if isinstance(info_or_dict, dict):
+                    # we've already hashed files for this size+dev
+                    hash_to_fileinfo = info_or_dict
+
                     # if we've already seen a file with the same inode,
                     # no need to deduplicate it again
                     if any(fileinfo.inode == stat.st_ino
                             for fileinfo
-                            in file_info_for_size.itervalues()
+                            in hash_to_fileinfo.itervalues()
                             ):
+                        sys.stderr.write("Already deduplicated %s\n" % fullpath)
                         continue
+
                     this_hash = get_file_hash(fullpath, options.algorithm)
-                    if this_hash in file_info_for_size:
+                    if this_hash in hash_to_fileinfo:
                         yield (
-                            file_info_for_size[this_hash].name,
-                            fullpath,
+                            hash_to_fileinfo[this_hash],
+                            this_fileinfo,
                             this_hash,
                             )
                     else:
-                        device_file_info_dict[file_size][this_hash] = FileInfo(
-                            fullpath,
-                            stat.st_ino,
-                            )
+                        device_fileinfo_dict[this_device][this_hash] = this_fileinfo
 
-                else:
-                    if file_info_for_size.inode == stat.st_ino:
+                else: # info_or_dict is just a FileInfo
+                    file_info = info_or_dict
+                    if file_info.inode == stat.st_ino:
                         # These are already the same file
                         continue
                     this_hash = get_file_hash(fullpath, options.algorithm)
                     # so far, we've only seen the one file
                     # thus we need to hash the original too
                     existing_file_hash = get_file_hash(
-                        file_info_for_size.name,
+                        file_info.name,
                         options.algorithm,
                         )
-                    device_file_info_dict[file_size] = {
-                        existing_file_hash: file_info_for_size,
+                    device_fileinfo_dict[this_device] = {
+                        existing_file_hash: file_info,
                         }
                     if existing_file_hash == this_hash:
                         yield (
-                            file_info_for_size.name,
-                            fullpath,
+                            file_info,
+                            this_fileinfo,
                             this_hash,
                             )
                     else:
-                        device_file_info_dict[file_size][this_hash] = FileInfo(
-                            fullpath,
-                            stat.st_ino,
-                            )
+                        device_fileinfo_dict[this_device][this_hash] = this_fileinfo
             else:
                 # we haven't seen this file size before
                 # so just note the full path for later
-                device_file_info_dict[file_size] =  FileInfo(
-                    fullpath,
-                    stat.st_ino,
-                    )
+                device_fileinfo_dict[this_device] =  this_fileinfo
+
+def templink(source_path, dest_dir, name=None, prefix='tmp'):
+     """Create a hard link to the given file with a unique name.
+     Returns the name of the link."""
+     if name is None:
+        name = os.path.basename(source_path)
+     i = 1
+     while True:
+         dest_path = os.path.join(
+            dest_dir,
+            "%s%s_%i" % (prefix, name, i),
+            )
+         try:
+             os.link(source_path, dest_path)
+         except OSError:
+             i += 1
+         else:
+             break
+     return dest_path
 
 def relink(patha, pathb, hash):
     # because link() would fail with an EEXIST,
@@ -181,15 +202,15 @@ def relink(patha, pathb, hash):
         raise
 
 def dedupe(options, *dirs):
-    for full_path_a, full_path_b, hash in find_dupes(options, *dirs):
+    for fileinfo_a, fileinfo_b, hash in find_dupes(options, *dirs):
         if not options.quiet:
-            print("%s -> %s" % (full_path_a, full_path_b))
+            print("%s -> %s" % (fileinfo_a.name, fileinfo_b.name))
         if not options.dry_run:
             try:
-                relink(full_path_a, full_path_b, hash)
+                relink(fileinfo_a.name, fileinfo_b.name, hash)
             except OSError:
                 sys.stderr.write("Could not relink %s to %s\n" % (
-                    full_path_a, full_path_b))
+                    fileinfo_a.name, fileinfo_b.name))
 
 def main():
     parser = build_parser()
