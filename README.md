@@ -5,6 +5,7 @@ and making the rest hard-links.
 This should happen atomically on Linux/Unix platforms, but due to
 limitations in the Python/Windows layers, may not be atomic on Windows.
 
+```
 Usage: dedupe.py [options] dir1 [dir2...]
 
 Options:
@@ -20,3 +21,4 @@ Options:
                         dsaEncryption, dsaWithSHA, ecdsa-with-SHA1, md4, md5,
                         ripemd160, sha, sha1, sha224, sha256, sha384, sha512,
                         whirlpool)
+```
