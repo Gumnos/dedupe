@@ -1,9 +1,10 @@
 # dedupe
 Deduplicate files within a given list of directories by keeping one copy
-and making the rest hard-links.
+and making the rest links.
 
 This should happen atomically on Linux/Unix platforms, but due to
 limitations in the Python/Windows layers, may not be atomic on Windows.
+There may also be issues on Windows regarding the use of symlinks.
 
 ```
 Usage: dedupe.py [options] dir1 [dir2...]
