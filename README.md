@@ -15,6 +15,8 @@ Options:
   -q, --quiet           Don't log which files were re-linked
   -r, --recurse         Recurse into subdirectories
   --min-size=MIN_SIZE   Minimum file-size to consider
+  -s WHEN, --symlink=WHEN, --sym-link=WHEN
+                        Should sym-links be used ([never], fallback, always)
   -a ALGORITHM, --algorithm=ALGORITHM
                         Choice of algorithm (one of DSA, DSA-SHA, MD4, MD5,
                         RIPEMD160, SHA, SHA1, SHA224, SHA256, SHA384, SHA512,
