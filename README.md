@@ -25,3 +25,25 @@ Options:
                         ripemd160, sha, sha1, sha224, sha256, sha384, sha512,
                         whirlpool)
 ```
+
+Originally I had tried out
+[a similar dedupe tool](https://github.com/jeek/dedupe)
+by @jeek but it had a few issues:
+
+- it hashed every file, not just the ones that were suspected of being
+  duplicates.  So on my low-end hosting service, `jailshell` would kill
+  off the process because it was taking too long (or maybe doing too
+  much I/O in one command). With my 3.2GB of photos,  @jeek's would
+  time-out after minutes where this one ran in seconds.
+
+- it didn't have the option of doing a dry-run to see which files would be
+  deduplicated, without actually performing the deduplication
+
+- it didn't detect whether deduplicated files were on different
+  devices/mount-points and attempts to `link()` would fail in those
+  cases
+
+- it didn't support doing sym-links
+
+Thus, this utility was born.  Basically, this should behave as the same
+utility, but faster and with a few more features.
