@@ -65,7 +65,8 @@ def build_parser():
         default=False,
         )
     parser.add_option("--min-size",
-        help="Minimum file-size to consider",
+        help="Minimum file-size to consider"
+            " (default=1 to avoid deduplicating 0-byte files)",
         dest="min_size",
         type="int",
         action="store",
