@@ -69,7 +69,7 @@ def build_parser():
         dest="min_size",
         type="int",
         action="store",
-        default=0,
+        default=1,
         )
     parser.add_option("-s", "--symlink", "--sym-link",
         help="Should sym-links be used (%s)" % ", ".join(
