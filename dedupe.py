@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 from collections import namedtuple
 import hashlib
 import logging
@@ -147,7 +147,7 @@ def find_dupes(options, *dirs):
                     # no need to deduplicate it again
                     if any(fileinfo.inode == stat.st_ino
                             for fileinfo
-                            in hash_to_fileinfo.itervalues()
+                            in hash_to_fileinfo.values()
                             ):
                         sys.stderr.write("Already deduplicated %s\n" % fullpath)
                         continue
